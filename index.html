@@ -4,265 +4,116 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Relative Oceanic Niño Index (RONI) - Live Graph</title>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f4f4f4;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        header {
-            width: 100%;
-            max-width: 1200px;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        h1 {
-            color: #333;
-            margin-bottom: 10px;
-        }
-        .header-controls {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        .btn {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        .btn:hover {
-            background-color: #0056b3;
-        }
-        .chart-container {
-            width: 100%;
-            max-width: 1200px;
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            position: relative;
-            overflow-x: auto; /* Enables horizontal scrolling */
-        }
-        /* Stretch canvas for the huge timeline */
-        #roniChart {
-            min-width: 3500px; 
-            height: 600px !important;
-        }
-        .loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 18px;
-            color: #555;
-            text-align: center;
-            background: rgba(255,255,255,0.9);
-            padding: 20px;
-            border-radius: 8px;
-        }
-        footer {
-            margin-top: 30px;
-            font-size: 12px;
-            color: #666;
-            text-align: center;
-        }
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; display: flex; flex-direction: column; align-items: center; }
+        header { width: 100%; max-width: 1200px; margin-bottom: 20px; text-align: center; }
+        h1 { color: #333; margin-bottom: 10px; }
+        .header-controls { display: flex; justify-content: center; gap: 15px; align-items: center; }
+        .jump-btn { background-color: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-size: 14px; }
+        .jump-btn:hover { background-color: #0056b3; }
+        .chart-container { width: 100%; max-width: 1200px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); position: relative; overflow-x: auto; }
+        #roniChart { min-width: 3000px; height: 600px !important; }
+        .loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 18px; color: #777; }
+        footer { margin-top: 30px; font-size: 12px; color: #666; text-align: center; }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>Live RONI Index (1950-2026)</h1>
+    <h1>Relative Oceanic Niño Index (RONI) (1950-2026)</h1>
     <div class="header-controls">
-        <button id="jumpToEnd" class="btn" style="display:none;">Jump to Present</button>
-        <button id="jumpToStart" class="btn" style="display:none;">Jump to 1950</button>
+        <button id="jumpToEnd" class="jump-btn">Jump to Present/End</button>
+        <button id="jumpToStart" class="jump-btn">Jump to 1950</button>
     </div>
 </header>
 
-<div class="chart-container" id="chartScrollContainer">
-    <div class="loading" id="loadingIndicator">
-        Fetching live data from NOAA via proxy...<br>
-        <small style="font-size: 14px;">(This might take a few seconds)</small>
-    </div>
+<div class="chart-container">
+    <div class="loading" id="loadingIndicator">Loading data...</div>
     <canvas id="roniChart"></canvas>
 </div>
 
 <footer>
-    Data Source: NOAA Climate Prediction Center<br>
-    *Colors: El Niño (Red &ge; 0.5), La Niña (Blue &le; -0.5), Neutral (Grey).<br>
-    Built as a single-page client-side scraper using corsproxy.io.
+    Data Source: NOAA Climate Prediction Center - RONI Index<br>
+    Plot updated: <span id="lastUpdated">Never</span><br>
+    *Colors: El Niño (Red &ge; 0.5), La Niña (Blue &le; -0.5), Neutral (Grey).
 </footer>
 
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        fetchAndRenderData();
-    });
+    document.addEventListener('DOMContentLoaded', function() {
+        const lastUpdatedSpan = document.getElementById('lastUpdated');
+        const chartContainer = document.querySelector('.chart-container');
 
-    async function fetchAndRenderData() {
-        const targetUrl = 'https://www.cpc.ncep.noaa.gov/products/analysis_monitoring/enso/roni/';
-        // Use a CORS proxy to bypass browser origin restrictions
-        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
+        Papa.parse("roni_data.csv", {
+            download: true,
+            header: true,
+            complete: function(results) {
+                document.getElementById('loadingIndicator').style.display = 'none';
+                if (results.data.length > 0) {
+                    const latestDataPoint = results.data[results.data.length - 1];
+                    if(latestDataPoint && latestDataPoint.date) {
+                        lastUpdatedSpan.textContent = latestDataPoint.date;
+                    }
+                    renderChart(results.data);
+                } else {
+                    document.getElementById('loadingIndicator').textContent = "No data found in roni_data.csv.";
+                }
+            },
+            error: function() {
+                document.getElementById('loadingIndicator').textContent = "Waiting for the first automated scan to complete. Check back in a minute!";
+            }
+        });
 
-        try {
-            const response = await fetch(proxyUrl);
-            if (!response.ok) throw new Error("Network response was not ok");
-            
-            const htmlText = await response.text();
-            
-            // Parse the HTML string into a DOM element
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(htmlText, 'text/html');
-            const tables = doc.querySelectorAll('table');
-            
-            let allData = [];
+        function renderChart(data) {
+            // Filter out empty rows that might cause issues
+            const validData = data.filter(row => row.date && row.roni);
+            const dates = validData.map(row => row.date);
+            const roniValues = validData.map(row => parseFloat(row.roni));
+            const types = validData.map(row => row.type);
 
-            // Iterate over all tables on the page to find the RONI tables
-            tables.forEach(table => {
-                const headers = Array.from(table.querySelectorAll('th')).map(th => th.textContent.trim());
-                
-                // Check if this is the correct table format
-                if (!headers.includes('Year')) return;
+            const colors = types.map(type => {
+                if (type === 'El Niño') return 'rgb(255, 99, 132)';
+                if (type === 'La Niña') return 'rgb(54, 162, 235)';
+                return 'rgb(201, 203, 207)';
+            });
 
-                const rows = table.querySelectorAll('tr');
-                
-                // Skip the header row
-                for (let i = 1; i < rows.length; i++) {
-                    const cols = rows[i].querySelectorAll('td');
-                    if (cols.length === 13) {
-                        const year = parseInt(cols[0].textContent.trim());
-                        
-                        // Restrict timeline
-                        if (isNaN(year) || year < 1950 || year > 2026) continue;
-
-                        // Loop through the 12 months (columns 1 to 12)
-                        for (let j = 1; j <= 12; j++) {
-                            const valText = cols[j].textContent.trim();
-                            if (valText && valText !== '-' && valText !== '') {
-                                const val = parseFloat(valText);
-                                if (!isNaN(val)) {
-                                    // Determine type for color coding
-                                    let type = 'Neutral';
-                                    if (val >= 0.5) type = 'El Niño';
-                                    else if (val <= -0.5) type = 'La Niña';
-
-                                    // Format month to 2 digits (e.g., 01, 02)
-                                    const monthStr = j.toString().padStart(2, '0');
-                                    
-                                    allData.push({
-                                        date: `${year}-${monthStr}`,
-                                        value: val,
-                                        type: type
-                                    });
-                                }
+            const ctx = document.getElementById('roniChart').getContext('2d');
+            const chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'RONI Index',
+                        data: roniValues,
+                        backgroundColor: colors,
+                        borderWidth: 1,
+                        barPercentage: 1.0,
+                        categoryPercentage: 1.0
+                    }]
+                },
+                options: {
+                    responsive: false, 
+                    maintainAspectRatio: false, 
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { title: { display: true, text: 'RONI Index Value' }, ticks: { stepSize: 0.5 } },
+                        x: {
+                            grid: { color: 'rgba(0,0,0,0.05)', lineWidth: (context) => (context.tick.label && context.tick.label.includes('-01')) ? 1 : 0 },
+                            ticks: {
+                                autoSkip: false, maxRotation: 90, minRotation: 90,
+                                callback: function(val, index) { return dates[index] && dates[index].includes('-01') ? dates[index] : ''; }
                             }
                         }
                     }
                 }
             });
 
-            // Sort data chronologically
-            allData.sort((a, b) => a.date.localeCompare(b.date));
-
-            if (allData.length > 0) {
-                document.getElementById('loadingIndicator').style.display = 'none';
-                document.getElementById('jumpToEnd').style.display = 'inline-block';
-                document.getElementById('jumpToStart').style.display = 'inline-block';
-                renderChart(allData);
-            } else {
-                throw new Error("No valid data found in tables.");
-            }
-
-        } catch (error) {
-            console.error("Scraping error:", error);
-            document.getElementById('loadingIndicator').innerHTML = 
-                `<span style="color:red;">Error fetching data.</span><br>The CORS proxy might be down or blocked.`;
+            document.getElementById('jumpToEnd').addEventListener('click', () => { chartContainer.scrollLeft = chartContainer.scrollWidth; });
+            document.getElementById('jumpToStart').addEventListener('click', () => { chartContainer.scrollLeft = 0; });
+            setTimeout(() => { chartContainer.scrollLeft = chartContainer.scrollWidth; }, 100);
         }
-    }
-
-    function renderChart(data) {
-        const dates = data.map(d => d.date);
-        const values = data.map(d => d.value);
-        const types = data.map(d => d.type);
-
-        // Map data to colors
-        const bgColors = types.map(type => {
-            if (type === 'El Niño') return 'rgb(255, 99, 132)'; // Red
-            if (type === 'La Niña') return 'rgb(54, 162, 235)'; // Blue
-            return 'rgb(201, 203, 207)';                        // Grey
-        });
-
-        const ctx = document.getElementById('roniChart').getContext('2d');
-        
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: dates,
-                datasets: [{
-                    label: 'RONI Index',
-                    data: values,
-                    backgroundColor: bgColors,
-                    borderWidth: 1,
-                    barPercentage: 1.0,
-                    categoryPercentage: 1.0
-                }]
-            },
-            options: {
-                responsive: false, 
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    y: {
-                        title: { display: true, text: 'Index Value' },
-                        ticks: { stepSize: 0.5 }
-                    },
-                    x: {
-                        grid: {
-                            color: 'rgba(0,0,0,0.05)',
-                            lineWidth: (context) => {
-                                // Emphasize the line at the start of every year (-01)
-                                return (context.tick.label && context.tick.label.includes('-01')) ? 1 : 0;
-                            }
-                        },
-                        ticks: {
-                            autoSkip: false,
-                            maxRotation: 90,
-                            minRotation: 90,
-                            callback: function(val, index) {
-                                // Only print the label for the first month of the year to prevent clutter
-                                return dates[index].includes('-01') ? dates[index] : '';
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        // Handle scrolling behavior
-        const container = document.getElementById('chartScrollContainer');
-        
-        document.getElementById('jumpToEnd').addEventListener('click', () => {
-            container.scrollLeft = container.scrollWidth;
-        });
-        
-        document.getElementById('jumpToStart').addEventListener('click', () => {
-            container.scrollLeft = 0;
-        });
-
-        // Jump to the end on initial load
-        setTimeout(() => { container.scrollLeft = container.scrollWidth; }, 100);
-    }
+    });
 </script>
-
 </body>
 </html>
