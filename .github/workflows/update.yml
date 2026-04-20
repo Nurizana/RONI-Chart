@@ -3,7 +3,7 @@ name: Update RONI Data and Chart
 on:
   schedule:
     - cron: '0 2 1 * *' # Runs 1st of every month
-  workflow_dispatch: # Allows manual trigger
+  workflow_dispatch: # THIS is the line that creates the "Run workflow" button!
 
 jobs:
   update_data:
