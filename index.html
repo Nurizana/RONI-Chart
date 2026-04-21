@@ -99,7 +99,11 @@
                     scales: {
                         y: { title: { display: true, text: 'RONI Index Value' }, ticks: { stepSize: 0.5 } },
                         x: {
-                            grid: { color: 'rgba(0,0,0,0.05)', lineWidth: (context) => (context.tick.label && context.tick.label.includes('-01')) ? 1 : 0 },
+                            grid: { 
+                                color: 'rgba(0,0,0,0.05)', 
+                                // This is the fixed line that prevents the crash:
+                                lineWidth: (context) => (context.tick && context.tick.label && String(context.tick.label).includes('-01')) ? 1 : 0 
+                            },
                             ticks: {
                                 autoSkip: false, maxRotation: 90, minRotation: 90,
                                 callback: function(val, index) { return dates[index] && dates[index].includes('-01') ? dates[index] : ''; }
