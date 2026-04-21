@@ -13,8 +13,8 @@ def scrape_roni_data():
     month_mapping = ['DJF', 'JFM', 'FMA', 'MAM', 'AMJ', 'MJJ', 'JJA', 'JAS', 'ASO', 'SON', 'OND', 'NDJ']
 
     for table in tables:
-        headers = [th.get_text(strip=True) for th in table.find_all('th')]
-        if 'Year' not in headers:
+        headers_list = [th.get_text(strip=True) for th in table.find_all('th')]
+        if 'Year' not in headers_list:
             continue
 
         rows = table.find_all('tr')[1:]
@@ -56,7 +56,9 @@ def save_data_to_csv(data):
         writer.writerow(['date', 'roni', 'type'])
         writer.writerows(data)
 
-if __name__ == "__main__":
-    roni_data = scrape_roni_data()
-    if roni_data:
-        save_data_to_csv(roni_data)
+# --- NEW ADDITION: This block tells Python to actually run the code ---
+if __name__ == '__main__':
+    print("Scraping RONI data...")
+    scraped_data = scrape_roni_data()
+    save_data_to_csv(scraped_data)
+    print(f"Data saved successfully. Total records: {len(scraped_data)}")
